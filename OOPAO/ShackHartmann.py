@@ -11,6 +11,10 @@ from .Detector import Detector
 from .tools.tools import bin_ndarray
 from joblib import Parallel, delayed
 import sys
+
+from OOPAO.tools.tools import crop
+from OOPAO.tools.tools import set_binning
+
 try:
     import cupy as xp
     global_gpu_flag = True
@@ -21,7 +25,10 @@ except ImportError or ModuleNotFoundError:
 
 
 class ShackHartmann:
-    def __init__(self, nSubap: float,
+    def __init__(self,
+                 nSubap: float,
+                 pixel_size_arcsec: float,
+                 n_pix_subap: int,
                  telescope,
                  lightRatio: float,
                  threshold_cog: float = 0.01,
@@ -145,21 +152,46 @@ class ShackHartmann:
         self.shannon_sampling = shannon_sampling
         self.unit_P2V = unit_P2V
 
-        # case where the spots are zeropadded to provide larger fOV
-        if padding_extension_factor >= 2:
-            self.n_pix_subap = int(
-                padding_extension_factor*self.telescope.resolution // self.nSubap)
-            self.is_extended = True
-            self.binning_factor = padding_extension_factor
-            self.zero_padding = 1
-        else:
-            self.n_pix_subap = self.telescope.resolution // self.nSubap
-            self.is_extended = False
+        self.d = (self.telescope.D / self.nSubap)  # diameter in meters of each SH subaperture (SH grid)
+        print("d: {}".format(self.d))
+        self.pixel_size_arcsec = pixel_size_arcsec
+        print(self.pixel_size_arcsec)
+        self.zero_padding = int((1 / self.pixel_size_arcsec) * ((self.telescope.src.wavelength / self.d) * 206265))
+        print("zero_padding: {}".format(self.zero_padding))
+
+        # For 1.0 Nyquist or even better sampled spots
+        self.padding_extension_factor = 1  # initialize padding_extension_factor variable
+
+        self.oversampling = (np.ceil(2.0 / self.zero_padding)).astype('int')
+        print("oversampling: {}".format(self.oversampling))
+
+        # Below 1.0 Nyquist sampling cases
+        if self.zero_padding * self.padding_extension_factor < 2:
+            self.zero_padding = (np.ceil(2.0 / self.zero_padding)).astype('int')
+
+        print("zero_padding: {}".format(self.zero_padding))
+
+        # Initialize some variables to avoid problems with current implementation
+        self.n_pix_subap = n_pix_subap
+        self.is_extended = False
+        self.binning_factor = 1
+
+        # # case where the spots are zeropadded to provide larger fOV
+        # if padding_extension_factor >= 2:
+        #     self.n_pix_subap = int(
+        #         padding_extension_factor*self.telescope.resolution // self.nSubap)
+        #     self.is_extended = True
+        #     self.binning_factor = padding_extension_factor
+        #     self.zero_padding = 1
+        # else:
+        #     self.n_pix_subap = self.telescope.resolution // self.nSubap
+        #     self.is_extended = False
 
         # different resolutions needed
         self.n_pix_subap_init = self.telescope.resolution // self.nSubap
         self.extra_pixel = (self.n_pix_subap-self.n_pix_subap_init)//2
         self.n_pix_lenslet_init = self.n_pix_subap_init*self.zero_padding
+        print("n_pix_lenslet_init: {}".format(self.n_pix_lenslet_init))
         self.n_pix_lenslet = self.n_pix_subap*self.zero_padding
         self.center = self.n_pix_lenslet//2
         self.center_init = self.n_pix_lenslet_init//2
@@ -654,18 +686,28 @@ class ShackHartmann:
 
                 # Crop to get the spot at shannon sampling
                 if self.shannon_sampling:
-                    self.maps_intensity = intensity[:, self.n_pix_subap//2:-self.n_pix_subap//2, self.n_pix_subap//2:-self.n_pix_subap//2]
+                    print("Doing cropping")
+                    print(np.shape(intensity))
+                    print("n_pix_suap: {}".format(self.n_pix_subap))
+                    # self.maps_intensity = intensity[:, self.n_pix_subap//2:-self.n_pix_subap//2, self.n_pix_subap//2:-self.n_pix_subap//2]
+                    self.maps_intensity = crop(intensity, self.n_pix_subap*self.oversampling, axis=0)
+                    print("Shape of maps_intensity after cropping: {}".format(np.shape(self.maps_intensity)))
+                    self.maps_intensity = bin_ndarray(ndarray=self.maps_intensity,new_shape=[self.maps_intensity.shape[0],
+                                                                                             self.n_pix_subap,
+                                                                                             self.n_pix_subap])
+                    # self.maps_intensity = set_binning(self.maps_intensity, self.oversampling)
+                    print("Shape of maps_intensity after binning: {}".format(np.shape(self.maps_intensity)))
 
-                if self.binning_factor > 1:
-                    self.maps_intensity = bin_ndarray(self.maps_intensity, [
-                                                      self.maps_intensity.shape[0], self.n_pix_subap//self.binning_factor, self.n_pix_subap//self.binning_factor], operation='sum')
-                else:
-                    self.maps_intensity = bin_ndarray(
-                        intensity, [intensity.shape[0], self.n_pix_subap//self.binning_factor, self.n_pix_subap//self.binning_factor], operation='sum')
+                # if self.binning_factor > 1:
+                #     self.maps_intensity = bin_ndarray(self.maps_intensity, [
+                #                                       self.maps_intensity.shape[0], self.n_pix_subap//self.binning_factor, self.n_pix_subap//self.binning_factor], operation='sum')
+                # else:
+                #     self.maps_intensity = bin_ndarray(
+                #         intensity, [intensity.shape[0], self.n_pix_subap//self.binning_factor, self.n_pix_subap//self.binning_factor], operation='sum')
                 # bin the 2D spots intensity to get the desired number of pixel per subaperture
-                if self.binning_factor > 1:
-                    self.maps_intensity = bin_ndarray(self.maps_intensity, [
-                                                      self.maps_intensity.shape[0], self.n_pix_subap//self.binning_factor, self.n_pix_subap//self.binning_factor], operation='sum')
+                # if self.binning_factor > 1:
+                #     self.maps_intensity = bin_ndarray(self.maps_intensity, [
+                #                                       self.maps_intensity.shape[0], self.n_pix_subap//self.binning_factor, self.n_pix_subap//self.binning_factor], operation='sum')
 
                 # fill camera frame with computed intensity (only valid subapertures)
                 def joblib_fill_raw_data():
