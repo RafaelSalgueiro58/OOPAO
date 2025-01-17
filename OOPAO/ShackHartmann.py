@@ -190,11 +190,6 @@ class ShackHartmann:
         self.fov_pixel_arcsec = self.fov_lenslet_arcsec / self.n_pix_subap
         self.fov_pixel_binned_arcsec = self.fov_lenslet_arcsec / self.n_pix_subap_init
 
-        X_map, Y_map = np.meshgrid(np.arange(
-            self.n_pix_subap//self.binning_factor), np.arange(self.n_pix_subap//self.binning_factor))
-        self.X_coord_map = np.atleast_3d(X_map).T
-        self.Y_coord_map = np.atleast_3d(Y_map).T
-
         if telescope.src.type == 'LGS':
             self.is_LGS = True
         else:
@@ -223,7 +218,6 @@ class ShackHartmann:
         self.phasor_tiled = np.moveaxis(
             np.tile(self.phasor[:, :, None], self.nSubap**2), 2, 0)
 
-        # Get subapertures index and flux per subaperture
         [xx, yy] = np.meshgrid(np.linspace(0, self.n_pix_lenslet-1, self.n_pix_lenslet),
                                np.linspace(0, self.n_pix_lenslet-1, self.n_pix_lenslet))
         self.phasor_expanded = np.exp(-(1j*np.pi *
@@ -231,15 +225,20 @@ class ShackHartmann:
         self.phasor_expanded_tiled = np.moveaxis(
             np.tile(self.phasor_expanded[:, :, None], self.nSubap**2), 2, 0)
 
+        # Get subapertures index and flux per subaperture
         self.initialize_flux()
+
         for i in range(self.nSubap):
             for j in range(self.nSubap):
                 self.index_x.append(i)
                 self.index_y.append(j)
+
         self.current_nPhoton = self.telescope.src.nPhoton
         self.index_x = np.asarray(self.index_x)
         self.index_y = np.asarray(self.index_y)
+
         print('Selecting valid subapertures based on flux considerations..')
+
         self.photon_per_subaperture_2D = np.reshape(
             self.photon_per_subaperture, [self.nSubap, self.nSubap])
         self.valid_subapertures = np.reshape(self.photon_per_subaperture >= self.lightRatio*np.max(
@@ -272,16 +271,10 @@ class ShackHartmann:
         self.cam.photonNoise = 0
         self.cam.readoutNoise = 0
 
-        # reference signal
-        self.sx0 = np.zeros([self.nSubap, self.nSubap])
-        self.sy0 = np.zeros([self.nSubap, self.nSubap])
-        # signal vector
-        self.sx = np.zeros([self.nSubap, self.nSubap])
-        self.sy = np.zeros([self.nSubap, self.nSubap])
-        # signal map
         self.SX = np.zeros([self.nSubap, self.nSubap])
         self.SY = np.zeros([self.nSubap, self.nSubap])
-        # flux per subaperture
+
+        # Calculation of reference slopes
         self.reference_slopes_maps = np.zeros([self.nSubap*2, self.nSubap])
         self.slopes_units = 1
         print('Acquiring reference slopes..')
