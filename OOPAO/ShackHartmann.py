@@ -156,8 +156,18 @@ class ShackHartmann:
         print("d: {}".format(self.d))
         self.pixel_size_arcsec = pixel_size_arcsec
         print(self.pixel_size_arcsec)
-        self.zero_padding = int((1 / self.pixel_size_arcsec) * ((self.telescope.src.wavelength / self.d) * 206265))
+        self.zero_padding = ((1 / self.pixel_size_arcsec) * ((self.telescope.src.wavelength / self.d) * 206265))
         print("zero_padding: {}".format(self.zero_padding))
+
+        # Initialize some variables to avoid problems with current implementation
+        self.n_pix_subap = n_pix_subap
+        self.is_extended = False
+        self.binning_factor = 1
+
+        # Verify if the number of pixels per subaperture is possible
+        if self.n_pix_subap > (self.telescope.resolution // self.nSubap) * (self.zero_padding):
+            raise ValueError("n_pix_subap too high for the desired sampling. Maximum allowed value is {}".format(
+                (self.telescope.resolution // self.nSubap) * self.zero_padding))
 
         # For 1.0 Nyquist or even better sampled spots
         self.padding_extension_factor = 1  # initialize padding_extension_factor variable
@@ -167,14 +177,11 @@ class ShackHartmann:
 
         # Below 1.0 Nyquist sampling cases
         if self.zero_padding * self.padding_extension_factor < 2:
-            self.zero_padding = (np.ceil(2.0 / self.zero_padding)).astype('int')
+            self.zero_padding *= (np.ceil(2.0 / self.zero_padding)).astype('int')
+
+        self.zero_padding = int(self.zero_padding)
 
         print("zero_padding: {}".format(self.zero_padding))
-
-        # Initialize some variables to avoid problems with current implementation
-        self.n_pix_subap = n_pix_subap
-        self.is_extended = False
-        self.binning_factor = 1
 
         # # case where the spots are zeropadded to provide larger fOV
         # if padding_extension_factor >= 2:
