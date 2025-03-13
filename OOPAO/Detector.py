@@ -14,6 +14,7 @@ class Detector:
     def __init__(self,
                  nRes: int = None,
                  integrationTime: float = None,
+                 samplingTime: float = 1e-3,
                  bits: int = None,
                  output_precision: int = None,
                  FWC: int = None,
@@ -95,6 +96,7 @@ class Detector:
         '''
         self.resolution = nRes
         self.integrationTime = integrationTime
+        self.samplingTime = samplingTime
         self.bits = bits
         self.output_precision = output_precision
         self.FWC = FWC
@@ -289,27 +291,55 @@ class Detector:
         self._integrated_time = 0
 
     def integrate(self, frame):
-        self.perfect_frame = frame.copy()
-        self.flux_max_px = self.perfect_frame.max()
-        self.signal = self.QE * self.flux_max_px
-        # Apply photon noise
-        if self.photonNoise != 0:
-            frame = self.set_photon_noise(frame)
 
-        # Apply background noise
-        if self.backgroundNoise is True:
-            frame = self.set_background_noise(frame)
+        if self.integrationTime == None: # just one frame
 
-        # Simulate the quantum efficiency of the detector (photons to electrons)
-        frame = self.conv_photon_electron(frame)
+            self.perfect_frame = frame.copy()
+            self.flux_max_px = self.perfect_frame.max()
+            self.signal = self.QE * self.flux_max_px
+            # Apply photon noise
+            if self.photonNoise != 0:
+                frame = self.set_photon_noise(frame)
 
-        self.buffer_frame.append(frame)
+            # Apply background noise
+            if self.backgroundNoise is True:
+                frame = self.set_background_noise(frame)
 
-        if self.integrationTime is None:
+            # Simulate the quantum efficiency of the detector (photons to electrons)
+            frame = self.conv_photon_electron(frame)
+
+            self.buffer_frame.append(frame)
+
             self.readout()
+
         else:
-            if self._integrated_time >= self.integrationTime:
-                self.readout()
+
+            while self._integrated_time < self.integrationTime:   # several frames to be added in the buffer
+
+                # print(self._integrated_time)
+                # print(self.integrationTime)
+
+                self.perfect_frame = frame.copy()
+                self.flux_max_px = self.perfect_frame.max()
+                self.signal = self.QE * self.flux_max_px
+                # Apply photon noise
+                if self.photonNoise != 0:
+                    frame = self.set_photon_noise(frame)
+
+                # Apply background noise
+                if self.backgroundNoise is True:
+                    frame = self.set_background_noise(frame)
+
+                # Simulate the quantum efficiency of the detector (photons to electrons)
+                frame = self.conv_photon_electron(frame)
+
+                self.buffer_frame.append(frame)
+
+                self._integrated_time += self.samplingTime
+
+                print(self._integrated_time)
+
+            self.readout()
 
     def computeSNR(self):
         if self.FWC is not None:
