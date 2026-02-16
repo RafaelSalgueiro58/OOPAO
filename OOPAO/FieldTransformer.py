@@ -123,6 +123,8 @@ class FieldTransformer:
                                         shape_out=None,
                                         order=1)
 
+        return
+
     def properties(self) -> dict:
         self.prop = dict()
         self.prop['shift_x'] = f"{'Shift_x [pix.]':<25s}|{self.shift_x}"
