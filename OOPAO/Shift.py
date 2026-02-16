@@ -53,46 +53,47 @@ class Shift:
     def relay(self, src):
 
         self.src = src
+
         if src.tag == 'source':
             self.src_list = [src]
+
         elif src.tag == 'asterism':
             self.src_list = src.src
 
-        # verify if the given shift and rotation lists have the proper length, i.e. the number of guide stars
-        lists = [self.shift_x, self.shift_y, self.rot_angle]
-        lengths = {len(lst) for lst in lists}
-        if lengths != {len(self.src_list)}:
-            raise OopaoError('The given shift and rotation lists need to have a length equal to the number of sources')
+            # verify if the given shift and rotation lists have the proper length, i.e. the number of guide stars
+            lists = [self.shift_x, self.shift_y, self.rot_angle]
+            lengths = {len(lst) for lst in lists}
+            if lengths != {len(self.src_list)}:
+                raise OopaoError(
+                    'The given shift and rotation lists need to have a length equal to the number of sources')
 
-        for i,src in enumerate(self.src_list):
-
-            src.optical_path.append([self.tag, self])
+        for src in self.src_list:
 
             # shift the EM field amplitude (fluxMap)
-            src.fluxMap = interpolate_image(image_in = src.fluxMap.copy(),
-                                            pixel_size_in = 1.0,
-                                            pixel_size_out = 1.0,
-                                            resolution_out = len(src.fluxMap.copy()),
-                                            rotation_angle = self.rot_angle[i],
-                                            shift_x = self.shift_x[i],
-                                            shift_y = self.shift_y[i],
-                                            anamorphosisAngle = 0,
-                                            tangentialScaling = 0,
-                                            radialScaling = 0,
-                                            shape_out = None,
-                                            order = 1)
+            src.fluxMap = interpolate_image(image_in=src.fluxMap.copy(),
+                                            pixel_size_in=1.0,
+                                            pixel_size_out=1.0,
+                                            resolution_out=len(src.fluxMap.copy()),
+                                            rotation_angle=self.rot_angle[src.ast_idx],
+                                            shift_x=self.shift_x[src.ast_idx],
+                                            shift_y=self.shift_y[src.ast_idx],
+                                            anamorphosisAngle=0,
+                                            tangentialScaling=0,
+                                            radialScaling=0,
+                                            shape_out=None,
+                                            order=1)
 
             # shift the EM OPD and phase
             # by updating the OPD, the phase (and OPD_no_pupil) will be also updated accordingly automatically
-            src.OPD = interpolate_image(image_in = src.OPD.copy(),
-                                        pixel_size_in = 1.0,
-                                        pixel_size_out = 1.0,
-                                        resolution_out = len(src.OPD.copy()),
-                                        rotation_angle = self.rot_angle[i],
-                                        shift_x = self.shift_x[i],
-                                        shift_y = self.shift_y[i],
-                                        anamorphosisAngle = 0,
-                                        tangentialScaling = 0,
-                                        radialScaling = 0,
-                                        shape_out = None,
-                                        order = 1)
+            src.OPD = interpolate_image(image_in=src.OPD.copy(),
+                                        pixel_size_in=1.0,
+                                        pixel_size_out=1.0,
+                                        resolution_out=len(src.OPD.copy()),
+                                        rotation_angle=self.rot_angle[src.ast_idx],
+                                        shift_x=self.shift_x[src.ast_idx],
+                                        shift_y=self.shift_y[src.ast_idx],
+                                        anamorphosisAngle=0,
+                                        tangentialScaling=0,
+                                        radialScaling=0,
+                                        shape_out=None,
+                                        order=1)
