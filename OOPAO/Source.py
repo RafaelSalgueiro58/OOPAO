@@ -208,7 +208,7 @@ class Source:
     def OPD(self, val):
         if val is not None:
             self._OPD = np.array(val)
-            # self._OPD_no_pupil = np.array(val)
+            self._OPD_no_pupil = np.array(val)
         else:
             self._OPD = None
             self._OPD_no_pupil = None
