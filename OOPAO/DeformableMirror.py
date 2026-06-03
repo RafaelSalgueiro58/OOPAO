@@ -320,8 +320,8 @@ class DeformableMirror:
 
             # default actuator selection
             if self.actuator_selection is None:
-                r_in = (telescope.centralObstruction*telescope.initial_D/2-0.5*self.pitch)
-                r_out = (telescope.initial_D/2+0.7533*self.pitch)
+                r_in = (telescope.centralObstruction*self.D/2-0.5*self.pitch)
+                r_out = (self.D/2+0.7533*self.pitch)
                 self.actuator_selection = [r_in, r_out]
             if np.isscalar(self.actuator_selection):
                 # Selection based on energy of the actuators in the pupil (after IF computation)
@@ -528,12 +528,12 @@ class DeformableMirror:
         self.set_pupil_footprint()
         if np.ndim(self.OPD) == 2:
             if src.inAsterism:
-                OPD = np.reshape(self.OPD[np.where(self.altitude_layer.pupil_footprint[self.src.ast_idx] == 1)], [self.telescope.resolution, self.telescope.resolution])
+                OPD = np.reshape(self.OPD[np.where(self.altitude_layer.pupil_footprint[src.ast_idx] == 1)], [self.telescope.resolution, self.telescope.resolution])
             else:
                 OPD = np.reshape(self.OPD[np.where(self.altitude_layer.pupil_footprint == 1)], [self.telescope.resolution, self.telescope.resolution])
         else:
-            OPD = np.reshape(self.OPD[self.altitude_layer.center_x[self.src.ast_idx]-self.telescope.resolution//2:self.altitude_layer.center_x[self.src.ast_idx]+self.telescope.resolution//2,
-                                      self.altitude_layer.center_y[self.src.ast_idx] - self.telescope.resolution//2:self.altitude_layer.center_y[self.src.ast_idx]+self.telescope.resolution//2, :],
+            OPD = np.reshape(self.OPD[self.altitude_layer.center_x[src.ast_idx]-self.telescope.resolution//2:self.altitude_layer.center_x[src.ast_idx]+self.telescope.resolution//2,
+                                      self.altitude_layer.center_y[src.ast_idx] - self.telescope.resolution//2:self.altitude_layer.center_y[src.ast_idx]+self.telescope.resolution//2, :],
                                      [self.telescope.resolution, self.telescope.resolution, self.OPD.shape[2]])
         if ~np.isinf(src.altitude):
             if np.ndim(self.OPD) == 2:
